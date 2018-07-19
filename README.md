@@ -1,4 +1,5 @@
-# Cookiecutter SAM for Python Lambda functions with CodePipeline integration
+# Cookiecutter template for AWS SAM 
+integration
 
 This is a [Cookiecutter](https://github.com/audreyr/cookiecutter) template to create a Serverless App based on Serverless Application Model (SAM) and Python 3.6.
 
