@@ -1,10 +1,19 @@
-# Cookiecutter template for AWS SAM 
-integration
+# Cookiecutter Template for AWS SAM Applications using GitOps patterns.
 
-This is a [Cookiecutter](https://github.com/audreyr/cookiecutter) template to create a Serverless App based on Serverless Application Model (SAM) and Python 3.6.
+This is a [Cookiecutter](https://github.com/audreyr/cookiecutter) template to create a Serverless Application based on Serverless Application Model (SAM).
 
-It is important to note that you should not try to `git clone` this project but use `cookiecutter` CLI instead as ``{{cookiecutter.project_slug}}`` will be rendered based on your input and therefore all variables and files will be rendered properly.
+It is important to note that **you should not try** to `git clone` this project but use `cookiecutter` CLI instead as a new project will be rendered based on your input and therefore all variables and files will be rendered properly.
 
+## Features
+
+This template will generate a new application using **GitOps** Patterns. Once your project is generated you only need to install the application's Pipeline. 
+
+The application Pipeline will:
+- Manage your AWS Infrastructure (Infrastructure as Code)  
+- Deploy your application (Continuous Deployments): by default CodeDeploy will be used with a **Canara Release strategy**. The release strategy can be fine-tuned to better suit your needs.
+- Generate your API docs (Swagger)
+
+![GitOps](img/GitOps.png)
 
 ## Requirements
 
@@ -31,12 +40,6 @@ Generate a new SAM based Serverless App: `cookiecutter gh:glnds/cookiecutter-aws
 You'll be prompted a few questions to help this cookiecutter template to scaffold this project and after its completed you should see a new folder at your current path with the name of the project you gave as input.
 
 **NOTE**: After you understand how cookiecutter works (cookiecutter.json, mainly), you can fork this repo and apply your own mechanisms to accelerate your development process and this can be followed for any programming language and OS.
-
-## Features
-
-### GitOps
-
-![GitOps](img/GitOps.png)
 
 
 # Credits
