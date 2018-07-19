@@ -13,7 +13,7 @@ The application Pipeline will:
 - Deploy your application (Continuous Deployments): by default CodeDeploy will be used with a **Canara Release strategy**. The release strategy can be fine-tuned to better suit your needs.
 - Generate your API docs (Swagger)
 
-![GitOps](img/GitOps.png)
+![GitOps](img/GitOps_pipeline.png)
 
 ## Requirements
 
