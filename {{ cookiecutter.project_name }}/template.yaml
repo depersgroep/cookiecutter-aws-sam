@@ -1,0 +1,237 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Transform: AWS::Serverless-2016-10-31
+Description: >
+  {{ cookiecutter.project_name }}
+    
+  {{ cookiecutter.project_short_description }}
+
+# More info about Globals: https://github.com/awslabs/serverless-application-model/blob/master/docs/globals.rst
+Globals:
+  Function:
+    Runtime: python3.6
+    Timeout: 5
+    MemorySize: 128
+    AutoPublishAlias: live # More info about Safe Deployments: https://github.com/awslabs/serverless-application-model/blob/master/docs/safe_lambda_deployments.rst
+    Tracing: Active
+    DeploymentPreference:
+      Type: Canary10Percent5Minutes
+
+Resources:
+  # Assure API Gateways is enabled in the AWS Account otherwise 'AWS::ApiGateway::Account' will fail!
+  # https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-apigateway-account.html
+  ApiKey:
+    Type: AWS::ApiGateway::ApiKey
+    Properties:
+      Name: {{ cookiecutter.project_name.lower().replace(' ', '-') }}-{{ cookiecutter.cloudformation_resource_suffix.lower() }}-dummy-api-key-cfn
+      Description: Dummy API key to ensure API Gateway is enabled
+      Enabled: false
+
+  ApiGWCloudWatchRole:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service:
+                - apigateway.amazonaws.com
+            Action: sts:AssumeRole
+      Path: "/"
+      ManagedPolicyArns:
+        - arn:aws:iam::aws:policy/service-role/AmazonAPIGatewayPushToCloudWatchLogs
+
+  Account:
+    Type: AWS::ApiGateway::Account
+    Properties:
+      CloudWatchRoleArn: !GetAtt ApiGWCloudWatchRole.Arn
+    DependsOn: ApiKey
+
+  ApiGateway:
+    Type: AWS::Serverless::Api
+    Properties:
+      Name: {{ cookiecutter.project_name.lower().replace(' ', '-') }}-{{ cookiecutter.cloudformation_resource_suffix.lower() }}-cfn
+      DefinitionUri: swagger.yaml
+      StageName: Prod
+      EndpointConfiguration: REGIONAL
+      Variables:
+        Region: !Ref AWS::Region
+        AccountId: !Ref AWS::AccountId
+        ApidocsUrl: s3-eu-west-1.amazonaws.com/{{ cookiecutter.project_name.lower().replace(' ', '-') }}-{{ cookiecutter.cloudformation_resource_suffix.lower() }}-cfn/docs/index.html
+      MethodSettings:
+        - MetricsEnabled: True
+          LoggingLevel: INFO
+          ResourcePath: "/"
+          HttpMethod: "*"
+          DataTraceEnabled: True
+    DependsOn: Account
+
+  LambdaOneFunctionLogGroup:
+    Type: AWS::Logs::LogGroup
+    Properties:
+      LogGroupName: /aws/lambda/lambda-one-{{ cookiecutter.cloudformation_resource_suffix.lower() }}-cfn
+      RetentionInDays: 7
+
+  LambdaOneFunction:
+    Type: AWS::Serverless::Function # More info about Function Resource: https://github.com/awslabs/serverless-application-model/blob/master/versions/2016-10-31.md#awsserverlessfunction
+    Properties:
+      FunctionName: lambda-one-{{ cookiecutter.cloudformation_resource_suffix.lower() }}-cfn
+      Handler: my_module/lambda_one.lambda_handler
+      CodeUri: build/
+      Events:
+        GetResource:
+          Type: Api # More info about API Event Source: https://github.com/awslabs/serverless-application-model/blob/master/versions/2016-10-31.md#api
+          Properties:
+            RestApiId: !Ref ApiGateway
+            Path: /rest/one
+            Method: GET
+      Environment: # More info about Env Vars: https://github.com/awslabs/serverless-application-model/blob/master/versions/2016-10-31.md#environment-object
+        Variables:
+          PARAM1: VALUE
+      DeploymentPreference:
+        Type: AllAtOnce
+        Alarms:
+          - !Ref LambdaOneErrorAlarm
+          - !Ref LambdaOneLiveErrorAlarm
+        Hooks:
+          PreTraffic: !Ref PreTrafficLambdaOneFunction
+
+  LambdaOneErrorAlarm:
+    Type: AWS::CloudWatch::Alarm
+    Properties:
+      AlarmDescription: errors on lambda one
+      AlarmName: Check-Lambda-One-Errors-{{ cookiecutter.cloudformation_resource_suffix.lower() }}-cfn
+      ActionsEnabled: True
+      ComparisonOperator: GreaterThanThreshold
+      EvaluationPeriods: 1
+      Namespace: AWS/Lambda
+      MetricName: Errors
+      Dimensions:
+        - Name: FunctionName
+          Value: !Ref LambdaOneFunction
+        - Name: Resource
+          Value: !Ref LambdaOneFunction
+      Period: 60
+      Statistic: Sum
+      Threshold: 0
+      TreatMissingData: notBreaching
+
+  LambdaOneLiveErrorAlarm:
+    Type: AWS::CloudWatch::Alarm
+    Properties:
+      AlarmDescription: errors on lambda one live alias
+      AlarmName: Check-Lambda-One-Live-Errors-{{ cookiecutter.cloudformation_resource_suffix.lower() }}-cfn
+      ActionsEnabled: True
+      ComparisonOperator: GreaterThanThreshold
+      EvaluationPeriods: 1
+      Namespace: AWS/Lambda
+      MetricName: Errors
+      Dimensions:
+        - Name: FunctionName
+          Value: !Ref LambdaOneFunction
+        - Name: Resource
+          Value: !Join [ ':', [ !Ref LambdaOneFunction, 'live' ] ]
+      Period: 60
+      Statistic: Sum
+      Threshold: 0
+      TreatMissingData: notBreaching
+
+  PreTrafficLambdaOneFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: CodeDeployHook_lamda-one-pre-traffic-{{ cookiecutter.cloudformation_resource_suffix.lower() }}-cfn
+      Handler: my_module/lambda_one_pre_traffic_hook.handler
+      CodeUri: build/
+      DeploymentPreference:
+        Enabled: false
+
+  # Sample policy to add additional permissions to your Lambda
+  LambdaOnePreHookAdditionalPermission:
+    Type: AWS::IAM::Policy
+    Properties:
+      PolicyName: root
+      PolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Effect: Allow
+            Action:
+              - lambda:InvokeFunction
+              - codedeploy:PutLifecycleEventHookExecutionStatus
+            Resource: "*"
+      Roles:
+        - !Ref PreTrafficLambdaOneFunctionRole # Sample policy to demonstrate Implicit IAM Role created with SAM
+
+  LambdaTwoFunctionLogGroup:
+    Type: AWS::Logs::LogGroup
+    Properties:
+      LogGroupName: /aws/lambda/lambda-two-{{ cookiecutter.cloudformation_resource_suffix.lower() }}-cfn
+      RetentionInDays: 7
+
+  LambdaTwoFunction:
+    Type: AWS::Serverless::Function # More info about Function Resource: https://github.com/awslabs/serverless-application-model/blob/master/versions/2016-10-31.md#awsserverlessfunction
+    Properties:
+      FunctionName: lambda-two-{{ cookiecutter.cloudformation_resource_suffix.lower() }}-cfn
+      Handler: my_module/lambda_two.lambda_handler
+      CodeUri: build/
+      Events:
+        GetResource:
+          Type: Api # More info about API Event Source: https://github.com/awslabs/serverless-application-model/blob/master/versions/2016-10-31.md#api
+          Properties:
+            RestApiId: !Ref ApiGateway
+            Path: /rest/two
+            Method: GET
+      DeploymentPreference:
+        Alarms:
+          - !Ref LambdaTwoErrorAlarm
+          - !Ref LambdaTwoLiveErrorAlarm
+
+  LambdaTwoErrorAlarm:
+    Type: AWS::CloudWatch::Alarm
+    Properties:
+      AlarmDescription: errors on lambda two
+      AlarmName: Check-Lambda-Two-Errors-{{ cookiecutter.cloudformation_resource_suffix.lower() }}-cfn
+      ActionsEnabled: True
+      ComparisonOperator: GreaterThanThreshold
+      EvaluationPeriods: 1
+      Namespace: AWS/Lambda
+      MetricName: Errors
+      Dimensions:
+        - Name: FunctionName
+          Value: !Ref LambdaTwoFunction
+        - Name: Resource
+          Value: !Ref LambdaTwoFunction
+      Period: 60
+      Statistic: Sum
+      Threshold: 0
+      TreatMissingData: notBreaching
+
+  LambdaTwoLiveErrorAlarm:
+    Type: AWS::CloudWatch::Alarm
+    Properties:
+      AlarmDescription: errors on lambda two live alias
+      AlarmName: Check-Lambda-Two-Live-Errors-{{ cookiecutter.cloudformation_resource_suffix.lower() }}-cfn
+      ActionsEnabled: True
+      ComparisonOperator: GreaterThanThreshold
+      EvaluationPeriods: 1
+      Namespace: AWS/Lambda
+      MetricName: Errors
+      Dimensions:
+        - Name: FunctionName
+          Value: !Ref LambdaTwoFunction
+        - Name: Resource
+          Value: !Join [ ':', [ !Ref LambdaTwoFunction, 'live' ] ]
+      Period: 60
+      Statistic: Sum
+      Threshold: 0
+      TreatMissingData: notBreaching
+
+Outputs:
+  # FirstApigwURL:
+  #   Description: "API Gateway endpoint URL for Prod environment for First Function"
+  #   Value: !Sub "https://${ServerlessRestApi}.execute-api.${AWS::Region}.amazonaws.com/Prod/first/proxy"
+  LambdaOneFunction:
+    Description: "Lambda One Function ARN"
+    Value: !GetAtt LambdaOneFunction.Arn
+  LambdaTwoFunction:
+    Description: "Lambda Two Function ARN"
+    Value: !GetAtt LambdaTwoFunction.Arn

@@ -1,0 +1,3 @@
+GET https://exanmle.execute-api.eu-west-1.amazonaws.com/Prod/rest/one
+
+GET https://example.execute-api.eu-west-1.amazonaws.com/Prod/rest/two

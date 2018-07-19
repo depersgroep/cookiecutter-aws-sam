@@ -1,0 +1,358 @@
+AWSTemplateFormatVersion: 2010-09-09
+Description: >
+  This CloudFormation template will deploy a full CI/CD pipeline for your SAM application.
+  It includes building with AWS CodeBuild and infrastructure deployment via AWS CloudFormation.
+  It will create an AWS CodePipeline for orchastrating builds, testing and deployments
+  to production.
+
+Parameters:
+  ApplicationName:
+    Description: This will be used to name the pipeline and build resources
+    Type: String
+    AllowedPattern: '[A-Za-z0-9-]+'
+  ArtifactBucket:
+    Description: An existing S3 bucket within your AWS account
+    Type: String
+  GitHubOAuthToken:
+    Description: Create a token with 'repo' and 'admin:repo_hook' permissions here https://github.com/settings/tokens
+    Type: String
+  GitHubUser:
+    Description: Enter GitHub username of the repository owner
+    Type: String
+  GitHubRepository:
+    Description: Enter the repository name that should be monitored for changes
+    Type: String
+  GitHubBranch:
+    Description: Enter the GitHub branch to monitored
+    Type: String
+    Default: master
+
+Metadata:
+  AWS::CloudFormation::Interface:
+    ParameterGroups:
+      - Label:
+          default: Application Configuration
+        Parameters:
+          - ApplicationName
+          - ArtifactBucket
+      - Label:
+          default: GitHub Configuration
+        Parameters:
+          - GitHubOAuthToken
+          - GitHubUser
+          - GitHubRepository
+          - GitHubBranch
+    ParameterLabels:
+      ApplicationName:
+        default: Application Name
+      ArtifactBucket:
+        default: CodePipeline Bucket
+      GitHubRepository:
+        default: Repository Name
+      GitHubUser:
+        default: Repository Owner
+      GitHubBranch:
+        default: Repository Branch
+      GitHubOAuthToken:
+        default: OAuth2 Token
+
+Resources:
+    ApplicationBucket:
+        Type: AWS::S3::Bucket
+        Properties:
+            BucketName: {{ cookiecutter.project_name.lower().replace(' ', '-') }}-{{ cookiecutter.cloudformation_resource_suffix.lower() }}-cfn
+            VersioningConfiguration:
+              Status: Enabled
+            LifecycleConfiguration:
+                Rules:
+                  - Id: ExpireArtifactsAfter{{ cookiecutter.artifacts_retention_days }}Days
+                    Status: Enabled
+                    Prefix: "artifacts"
+                    ExpirationInDays: {{ cookiecutter.artifacts_retention_days }}
+                    NoncurrentVersionExpirationInDays: {{ cookiecutter.artifacts_retention_days }}
+            CorsConfiguration:
+              CorsRules:
+                - AllowedMethods:
+                    - GET
+                    - HEAD
+                  AllowedOrigins:
+                    - "https://*.execute-api.eu-west-1.amazonaws.com"
+        DeletionPolicy: Retain
+
+    CodeBuildServiceRole:
+        Type: AWS::IAM::Role
+        Properties:
+            AssumeRolePolicyDocument:
+                Version: '2012-10-17'
+                Statement:
+                  - Action:
+                      - sts:AssumeRole
+                    Effect: Allow
+                    Principal:
+                      Service:
+                        - codebuild.amazonaws.com
+            Path: /
+            Policies:
+                - PolicyName: !Sub ${ApplicationName}CodeBuildPolicy-{{ cookiecutter.cloudformation_resource_suffix.lower() }}-cfn
+                  PolicyDocument:
+                    Version: '2012-10-17'
+                    Statement:
+                      - Effect: Allow
+                        Resource:
+                          - "*"
+                        Action:
+                          - "*"
+
+    CodeBuildProject:
+        Type: AWS::CodeBuild::Project
+        Properties:
+            Name: !Sub ${ApplicationName}-build-{{ cookiecutter.cloudformation_resource_suffix.lower() }}-cfn
+            Description: !Sub Build project for ${ApplicationName}
+            Artifacts:
+              Name: !Ref ApplicationName
+              Type: CODEPIPELINE
+            Environment:
+                Type: LINUX_CONTAINER
+                ComputeType: BUILD_GENERAL1_MEDIUM
+                Image: aws/codebuild/python:3.6.5
+                EnvironmentVariables:
+                  - Name: BUILD_OUTPUT_BUCKET
+                    Value: !Ref ArtifactBucket
+                  - Name: APP_NAME
+                    Value: !Ref ApplicationName
+                  - Name: AWS_REGION
+                    Value: !Ref AWS::Region
+                  - Name: AWS_ACCOUNTID
+                    Value: !Ref AWS::AccountId
+            ServiceRole: !GetAtt CodeBuildServiceRole.Arn
+            Source:
+                Type: CODEPIPELINE
+
+    # Codebuild Swagger-ui
+    CodeBuildSwaggerUI:
+        Type: AWS::CodeBuild::Project
+        Properties:
+            Name: !Sub ${ApplicationName}--swaggerui-build-{{ cookiecutter.cloudformation_resource_suffix.lower() }}-cfn
+            Description: !Sub Deploy Swagger UI for ${ApplicationName}
+            Artifacts:
+                Type: CODEPIPELINE
+            Environment:
+                Type: LINUX_CONTAINER
+                ComputeType: BUILD_GENERAL1_MEDIUM
+                Image: aws/codebuild/python:3.6.5
+            ServiceRole: !GetAtt CodeBuildServiceRole.Arn
+            Source:
+                Type: CODEPIPELINE
+                BuildSpec: !Sub |
+                    version: 0.1
+                    phases:
+                        post_build:
+                            commands:
+                              - chmod +x swagger_build.sh
+                              - ./swagger_build.sh
+                              - aws s3 cp --recursive --acl public-read ./swagger-ui/dist s3://{{ cookiecutter.project_name.lower().replace(' ', '-') }}-{{ cookiecutter.cloudformation_resource_suffix.lower() }}-cfn/docs
+
+    CodePipelineServiceRole:
+        Type: AWS::IAM::Role
+        Properties:
+            AssumeRolePolicyDocument:
+                Version: '2012-10-17'
+                Statement:
+                  - Action:
+                    - sts:AssumeRole
+                    Effect: Allow
+                    Principal:
+                      Service:
+                        - codepipeline.amazonaws.com
+            Path: /
+            Policies:
+                - PolicyName: !Sub ${ApplicationName}CodePipelineAccess-{{ cookiecutter.cloudformation_resource_suffix.lower() }}-cfn
+                  PolicyDocument:
+                    Version: '2012-10-17'
+                    Statement:
+                      - Effect: Allow
+                        Action:
+                          - s3:GetObject
+                          - s3:GetObjectVersion
+                          - s3:GetBucketVersioning
+                          - s3:PutObject
+                        Resource:
+                          - "*"
+                      - Effect: Allow
+                        Action:
+                          - cloudformation:CreateStack
+                          - cloudformation:DeleteStack
+                          - cloudformation:DescribeStacks
+                          - cloudformation:UpdateStack
+                          - cloudformation:CreateChangeSet
+                          - cloudformation:DeleteChangeSet
+                          - cloudformation:DescribeChangeSet
+                          - cloudformation:ExecuteChangeSet
+                          - cloudformation:SetStackPolicy
+                          - cloudformation:ValidateTemplate
+                          - iam:PassRole
+                        Resource: '*'
+                      - Effect: Allow
+                        Action:
+                          - codedeploy:CreateDeployment
+                          - codedeploy:GetApplicationRevision
+                          - codedeploy:GetDeployment
+                          - codedeploy:GetDeploymentConfig
+                          - codedeploy:RegisterApplicationRevision
+                        Resource: '*'
+                      - Effect: Allow
+                        Action:
+                          - codebuild:BatchGetBuilds
+                          - codebuild:StartBuild
+                        Resource: '*'
+
+    PipelineCloudFormationExecutionRole:
+      Type: AWS::IAM::Role
+      Properties:
+        AssumeRolePolicyDocument:
+          Version: '2012-10-17'
+          Statement:
+            Action:
+              - sts:AssumeRole
+            Effect: Allow
+            Principal:
+              Service:
+                - cloudformation.amazonaws.com
+        Path: /
+        Policies:
+          - PolicyName: !Sub ${ApplicationName}PipeleinCFExecutionAccess-{{ cookiecutter.cloudformation_resource_suffix.lower() }}-cfn
+            PolicyDocument:
+              Version: '2012-10-17'
+              Statement:
+                - Effect: Allow
+                  Action:
+                    - s3:GetObject
+                    - s3:GetObjectVersion
+                    - s3:GetBucketVersioning
+                    - events:PutRule
+                    - events:DescribeRule
+                    - events:RemoveTargets
+                    - events:DeleteRule
+                    - events:PutTargets
+                    - cloudwatch:*
+                    - logs:*
+                    - codedeploy:*
+                    - iam:PassRole
+                    - cloudformation:CreateChangeSet
+                  Resource:
+                    - '*'
+                - Effect: Allow
+                  Resource:
+                    - arn:aws:s3:::codepipeline*
+                  Action:
+                    - s3:PutObject
+                - Effect: Allow
+                  Resource:
+                    - !Sub arn:aws:s3:::${ArtifactBucket}/*
+                  Action:
+                    - s3:PutObject
+                - Effect: Allow
+                  Resource:
+                    - !Sub arn:aws:lambda:${AWS::Region}:${AWS::AccountId}:function:*
+                  Action:
+                    - lambda:*
+                - Effect: Allow
+                  Resource:
+                    - !Sub arn:aws:apigateway:${AWS::Region}::*
+                  Action:
+                    - apigateway:*
+                - Effect: Allow
+                  Resource:
+                    - !Sub arn:aws:iam::${AWS::AccountId}:role/*
+                  Action:
+                    - iam:GetRole
+                    - iam:CreateRole
+                    - iam:DeleteRole
+                    - iam:DeleteRolePolicy
+                    - iam:PutRolePolicy
+                    - iam:AttachRolePolicy
+                    - iam:DetachRolePolicy
+
+    Pipeline:
+        Type: AWS::CodePipeline::Pipeline
+        Properties:
+            ArtifactStore:
+              Location: !Ref ArtifactBucket
+              Type: S3
+            Name: !Sub ${ApplicationName}-pipeline-{{ cookiecutter.cloudformation_resource_suffix.lower() }}-cfn
+            RoleArn: !GetAtt CodePipelineServiceRole.Arn
+            Stages:
+                - Name: Source
+                  Actions:
+                    - Name: GitHub
+                      ActionTypeId:
+                        Category: Source
+                        Owner: ThirdParty
+                        Provider: GitHub
+                        Version: 1
+                      Configuration:
+                        Owner: !Ref GitHubUser
+                        Repo: !Ref GitHubRepository
+                        Branch: !Ref GitHubBranch
+                        OAuthToken: !Ref GitHubOAuthToken
+                      OutputArtifacts:
+                        - Name: SourceZip
+                      RunOrder: 1
+                - Name: Build
+                  Actions:
+                    - Name: CodeBuild
+                      InputArtifacts:
+                        - Name: SourceZip
+                      ActionTypeId:
+                        Category: Build
+                        Owner: AWS
+                        Provider: CodeBuild
+                        Version: 1
+                      Configuration:
+                        ProjectName: !Ref CodeBuildProject
+                      OutputArtifacts:
+                        - Name: BuildZip
+                - Name: Production
+                  Actions:
+                    - Name: CreateChangeSet
+                      InputArtifacts:
+                        - Name: BuildZip
+                      ActionTypeId:
+                        Category: Deploy
+                        Owner: AWS
+                        Provider: CloudFormation
+                        Version: 1
+                      Configuration:
+                        ActionMode: CHANGE_SET_REPLACE
+                        RoleArn: !GetAtt PipelineCloudFormationExecutionRole.Arn
+                        StackName: !Sub ${ApplicationName}-{{ cookiecutter.cloudformation_resource_suffix.lower() }}
+                        ChangeSetName: !Sub ${ApplicationName}-changeset-{{ cookiecutter.cloudformation_resource_suffix.lower() }}
+                        TemplatePath: BuildZip::output.yml
+                        TemplateConfiguration: BuildZip::configuration.json
+                        Capabilities: CAPABILITY_NAMED_IAM
+                      RunOrder: 1
+                    - Name: ExecuteChangeSet
+                      ActionTypeId:
+                        Category: Deploy
+                        Owner: AWS
+                        Provider: CloudFormation
+                        Version: 1
+                      Configuration:
+                        ActionMode: CHANGE_SET_EXECUTE
+                        RoleArn: !GetAtt PipelineCloudFormationExecutionRole.Arn
+                        StackName: !Sub ${ApplicationName}-{{ cookiecutter.cloudformation_resource_suffix.lower() }}
+                        ChangeSetName: !Sub ${ApplicationName}-changeset-{{ cookiecutter.cloudformation_resource_suffix.lower() }}
+                      OutputArtifacts:
+                        - Name: !Sub ${ApplicationName}-changeset-{{ cookiecutter.cloudformation_resource_suffix.lower() }}
+                      RunOrder: 2
+                    - Name: DeploySwaggerUI
+                      ActionTypeId:
+                        Category: Build
+                        Owner: AWS
+                        Version: 1
+                        Provider: CodeBuild
+                      InputArtifacts:
+                        - Name: BuildZip
+                      Configuration:
+                        ProjectName: !Ref CodeBuildSwaggerUI
+                      RunOrder: 3

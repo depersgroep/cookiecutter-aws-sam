@@ -1,0 +1,74 @@
+
+---
+swagger: "2.0"
+info:
+  version: "1.0"
+  title: "{{ cookiecutter.project_name }}"
+  description: "{{ cookiecutter.project_short_description }}"
+# host: "<<base_url_placeholder>>"
+basePath: "/Prod"
+schemes:
+  - "https"
+paths:
+## Dont't remove the comments for the API-DOCS below. This is trimmed during
+#swagger-ui build.
+## API-DOCS ##
+  /api-docs:
+    get:
+      responses: {}
+      x-amazon-apigateway-integration:
+        responses:
+          default:
+            statusCode: "200"
+        uri: https://${stageVariables.ApidocsUrl}
+        passthroughBehavior: "when_no_match"
+        httpMethod: "GET"
+        type: "http_proxy"
+    options:
+      responses: {}
+      x-amazon-apigateway-integration:
+        responses:
+          default:
+            statusCode: "200"
+        passthroughBehavior: "when_no_match"
+        httpMethod: "OPTIONS"
+        type: "MOCK"
+## END API-DOCS ##
+  /rest/one:
+    get:
+      summary: "Sample function One"
+      description: ""
+      produces:
+        - application/json
+      responses:
+        200:
+          description: "200 OK"
+        500:
+          description: "500 Internal Server Error"
+      x-amazon-apigateway-integration:
+        responses:
+          default:
+            statusCode: "200"
+        uri: arn:aws:apigateway:__REGION__:lambda:path/2015-03-31/functions/arn:aws:lambda:__REGION__:__ACCOUNTID__:function:lambda-one-{{ cookiecutter.cloudformation_resource_suffix.lower() }}-cfn:live/invocations
+        passthroughBehavior: when_no_match
+        httpMethod: POST
+        type: aws_proxy
+  /rest/two:
+    get:
+      summary: "Sample function Two"
+      description: ""
+      produces:
+        - application/json
+      responses:
+        200:
+          description: "200 OK"
+        500:
+          description: "500 Internal Server Error"
+      x-amazon-apigateway-integration:
+        responses:
+          default:
+            statusCode: "200"
+        uri: arn:aws:apigateway:__REGION__:lambda:path/2015-03-31/functions/arn:aws:lambda:__REGION__:__ACCOUNTID__:function:lambda-two-{{ cookiecutter.cloudformation_resource_suffix.lower() }}-cfn:live/invocations
+        passthroughBehavior: when_no_match
+        httpMethod: POST
+        type: aws_proxy

@@ -1,0 +1,8 @@
+{
+    "project_name": "Name of the project",
+    "project_short_description": "A short description of the project",
+    "cloudformation_resource_suffix": "Naming suffix to guarantee uniqueness",
+    "artifacts_retention_days": "180",
+    "github_user": "GitHub username",
+    "github_repo": "{{ cookiecutter.project_name.lower().replace(' ', '-') }}"
+}

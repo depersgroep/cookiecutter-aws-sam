@@ -1,0 +1,31 @@
+---
+version: 0.2
+
+phases:
+  install:
+    commands:
+      - pip install pipenv
+  pre_build:
+    commands:
+      - pipenv install --dev
+      - pipenv run make test
+  build:
+    commands:
+      - cd $CODEBUILD_SRC_DIR
+      - make clean
+      - make build
+      - test -d dist || mkdir dist
+      - cp config/*.json dist/
+      - sed -i -e "s/__REGION__/$AWS_REGION/g" -e "s/__ACCOUNTID__/$AWS_ACCOUNTID/g" swagger.yaml
+      - cp swagger.yaml dist/
+      - cp scripts/swagger_build.sh dist/
+      - >-
+        aws cloudformation package --template-file template.yaml
+        --s3-bucket $BUILD_OUTPUT_BUCKET
+        --s3-prefix artifacts
+        --output-template-file dist/output.yml
+artifacts:
+  files:
+    - '**/*'
+  discard-paths: no
+  base-directory: dist
