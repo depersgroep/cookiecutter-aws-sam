@@ -1,4 +1,6 @@
 # {{ cookiecutter.project_name }}
+[![AWS CodePipeline Status](https://s3-eu-west-1.amazonaws.com/{{ cookiecutter.project_name.lower().replace(' ', '-') }}-{{ cookiecutter.cloudformation_resource_suffix.lower() }}-cfn/badges/current_state.svg)](https://s3-eu-west-1.amazonaws.com/{{ cookiecutter.project_name.lower().replace(' ', '-') }}-{{ cookiecutter.cloudformation_resource_suffix.lower() }}-cfn/badges/current_state.svg)
+
 
 This project has build on the **GitOps** principles, so this Git repo act as your **Source of Truth**.....Elaborate on DR, IAC,....
 
