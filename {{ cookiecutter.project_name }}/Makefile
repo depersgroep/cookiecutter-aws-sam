@@ -43,7 +43,7 @@ uninstall:
 # Lint python code.
 lint:
 	$(info [*] Running python codestyle check....)
-	@pipenv run pycodestyle --max-line-length 100 --ignore E402,W503,E704 --statistics src/
+	@pipenv run pycodestyle --max-line-length 100 --ignore E402,W503,W504,E704 --statistics src/
 .PHONY: lint
 
 # Run the unit tests.
