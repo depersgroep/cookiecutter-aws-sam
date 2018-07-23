@@ -168,14 +168,14 @@ Resources:
       RetentionInDays: 7
 
   LambdaTwoFunction:
-    Type: AWS::Serverless::Function # More info about Function Resource: https://github.com/awslabs/serverless-application-model/blob/master/versions/2016-10-31.md#awsserverlessfunction
+    Type: AWS::Serverless::Function
     Properties:
       FunctionName: lambda-two-{{ cookiecutter.cloudformation_resource_suffix.lower() }}-cfn
       Handler: my_module/lambda_two.lambda_handler
       CodeUri: build/
       Events:
         GetResource:
-          Type: Api # More info about API Event Source: https://github.com/awslabs/serverless-application-model/blob/master/versions/2016-10-31.md#api
+          Type: Api
           Properties:
             RestApiId: !Ref ApiGateway
             Path: /rest/two
@@ -224,6 +224,30 @@ Resources:
       Statistic: Sum
       Threshold: 0
       TreatMissingData: notBreaching
+
+  LambdaBuildBadgeFunctionLogGroup:
+    Type: AWS::Logs::LogGroup
+    Properties:
+      LogGroupName: /aws/lambda/{{ cookiecutter.project_name.lower().replace(' ', '-') }}-build-badge-{{ cookiecutter.cloudformation_resource_suffix.lower() }}-cfn
+      RetentionInDays: 7
+
+  LambdaBuildBadgeFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: {{ cookiecutter.project_name.lower().replace(' ', '-') }}-build-badge-{{ cookiecutter.cloudformation_resource_suffix.lower() }}-cfn
+      Handler: my_module/pipeline_build_badge.lambda_handler
+      CodeUri: build/
+      Events:
+        RunOnPipelineChange:
+          Type: CloudWatchEvent
+          Properties:
+            Pattern:
+              source:
+                - aws.codepipeline
+              detail-type:
+                - CodePipeline Pipeline Execution State Change
+      DeploymentPreference:
+        Enabled: false
 
 Outputs:
   # FirstApigwURL:
