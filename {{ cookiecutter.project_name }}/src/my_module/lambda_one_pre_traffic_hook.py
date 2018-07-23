@@ -17,7 +17,7 @@ def handler(event, context):
     is_ok = False
     try:
         lambda_client = boto3.client('lambda')
-        function_name = 'lambda-one-cfn'
+        function_name = 'lambda-one-{{ cookiecutter.cloudformation_resource_suffix.lower() }}-cfn'
         event = {}
         response = lambda_client.invoke(
             FunctionName=function_name,
