@@ -53,9 +53,10 @@ pip install pipenv
 
 ## Usage
 
-Generate a new SAM based Serverless App: `cookiecutter gh:glnds/cookiecutter-aws-sam-python`. 
+1. Generate a new SAM based Serverless App: `cookiecutter gh:glnds/cookiecutter-aws-sam-python`. 
 
-You'll be prompted a few questions to help this cookiecutter template to scaffold this project and after its completed you should see a new folder at your current path with the name of the project you gave as input.
+	You'll be prompted a few questions to help this cookiecutter template to scaffold this project and after its completed you should see a new folder at your current path with the name of the project you gave as input.
+2. Open the folder containing the newly generated project and follow the instructions in the ```README.md``` file.
 
 **NOTE**: After you understand how cookiecutter works (cookiecutter.json, mainly), you can fork this repo and apply your own mechanisms to accelerate your development process and this can be followed for any programming language and OS.
 
