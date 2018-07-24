@@ -15,21 +15,39 @@ The application Pipeline will:
 
 ![GitOps](img/GitOps_pipeline.png)
 
-## Requirements
+## Getting Started
 
-Install `cookiecutter` command line: 
+### Prerequisites
 
-**Pip users**:
+- Git
+- AWS CLI
+- make tools
+- Python 3.6
+- Cookiecutter
+- Pipenv
 
-* `pip install cookiecutter`
+### Installation
 
-**Homebrew users**:
+#### OS X
+- [Get Python 3.6](https://www.python.org/downloads/release/python-360/)
+- `pip3 install cookiecutter`
+- `pip3 install pipenv`
 
-* `brew install cookiecutter`
 
-**Windows or Pipenv users**:
+#### Windows
 
-* `pipenv install cookiecutter`
+For make and other Unix Utilities, you can download [unxUtils.1.0.0.1.nupkg](https://artifactory.persgroep.cloud/artifactory/ext-release-local/org/chocolatey/UnxUtils/1.0.0.1/unxUtils.1.0.0.1.nupkg)
+
+On Windows, with [chocolatey](https://chocolatey.org) and [sudo](https://chocolatey.org/packages/sudo) installed:
+
+```
+sudo choco install python
+sudo choco install awscli
+sudo choco install unxUtils.1.0.0.1.nupkg
+pip install cookiecutter
+pip install pipenv
+```
+
 
 **NOTE**: [`Pipenv`](https://github.com/pypa/pipenv) is the new and recommended Python packaging tool that works across multiple platforms and makes Windows a first-class citizen.
 
