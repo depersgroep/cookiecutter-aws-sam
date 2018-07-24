@@ -60,10 +60,26 @@ A pipeline is included in this stack in order to deploy your code on AWS. The pi
 		git remote add origin git@github.com:{{ cookiecutter.github_user }}/{{ cookiecutter.github_repo }}.git
 		git push -u origin master
 		```
-1. Setup AWS CodePipeline: in order to install the pipeline a GitHub token is required. To create a token go to: https://github.com/settings/tokens and create a token with `repo` and `admin:repo_hook` permissions. Next run:
+1. Setup AWS CodePipeline: in order to install the pipeline a GitHub token is required. To create a token go to: https://github.com/settings/tokens and create a token with `repo` and `admin:repo_hook` permissions.
+
+	For OS X run:
 
 	```bash
 	make create-pipeline OAUTH_TOKEN=your_github_token 
+	```
+	
+	For Window run:
+	```bash
+	aws cloudformation create-stack ^
+	--stack-name {{ cookiecutter.project_name.lower().replace(' ', '-') }}-{{ cookiecutter.cloudformation_resource_suffix.lower() }}-pipeline ^
+	--template-body file://pipeline.yaml --parameters ^
+	ParameterKey=ApplicationName,ParameterValue={{ cookiecutter.project_name.lower().replace(' ', '-') }} ^
+	ParameterKey=ArtifactBucket,ParameterValue={{ cookiecutter.project_name.lower().replace(' ', '-') }}-{{ cookiecutter.cloudformation_resource_suffix.lower() }}-cfn ^
+	ParameterKey=GitHubOAuthToken,ParameterValue={replace_with_oauth_token} ^
+	ParameterKey=GitHubUser,ParameterValue={{ cookiecutter.github_user }} ^
+	ParameterKey=GitHubRepository,ParameterValue={{ cookiecutter.github_repo }} ^
+	ParameterKey=GitHubBranch,ParameterValue=master ^
+	--region eu-west-1 --capabilities CAPABILITY_NAMED_IAM --output text
 	```
 	
 You're all set. The newly created AWS CodePipeline will be triggered automatically and in minutes your application will deployed on AWS.
