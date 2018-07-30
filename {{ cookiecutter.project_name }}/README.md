@@ -133,7 +133,42 @@ To remove the pipeline run:
 make delete-pipeline
 ```
 
+## Project Layout
+
+Find the most important project files with their description below:
+```
+.
+├── Makefile				# Makefile to make life easier :)
+├── buildspec.yml			# Buildspec for building your project with AWS CodeBuild
+├── pipeline.yaml			# CloudFormation template to setup AWS CodePipeline 
+├── scripts
+│   └── swagger_build.sh	# Script triggered by AWS CodeBuild to build the Swagger documentation
+├── src
+│   └── my_module			# All Lambda source code
+│       └── lambda_*.py
+├── swagger.yaml			# Swagger file to deploy AWS API Gateway
+├── targets.txt				# Config file to run load tests with Vegeta (see appendix)
+├── template.yaml			# CloudFormation template for AWS SAM
+└── tests					# Lambda Unit Tests
+    └── test_handler.py
+ ```
+
 ## Appendix
+
+### Load Testing
+The ```targets.txt``` file included in the project can be used to configure [Vegeta](https://github.com/tsenart/vegeta) to run load tests on the API Gateway endpoints.
+
+**For canary releasing it is crucial to have load on your application.** If there is no load on your application, tests will never fail and your deployments will always pass regardless there's an error or not.
+
+To fire 20 request per second during 30 seconds:
+```
+vegeta attack -rate=20 -duration=30s -targets=targets.txt | vegeta report
+```
+
+To fire 50 requests per second (default) forever:
+```
+vegeta attack -duration=0 -targets=targets.txt | vegeta report
+```
 
 ### Makefile
 
