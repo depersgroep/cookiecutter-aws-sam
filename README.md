@@ -10,7 +10,7 @@ This template will generate a new application using **GitOps** Patterns. Once yo
 
 The application Pipeline will:
 - Manage your AWS Infrastructure (Infrastructure as Code)  
-- Deploy your application (Continuous Deployments). AWS CodeDeploy will be used to deploy your lambda's with a **Canara Release strategy**. The release strategy can be fine-tuned to better suit your needs.
+- Deploy your application (Continuous Deployments). AWS CodeDeploy will be used to deploy your lambda's with a **Canary Release strategy**. The release strategy can be fine-tuned later to better suit your needs.
 - Generate your API docs (Swagger)
 
 ![GitOps](img/GitOps_pipeline.png)
@@ -21,10 +21,10 @@ The application Pipeline will:
 
 - Git
 - AWS CLI
-- make tools
 - Python 3.6
 - Cookiecutter
 - Pipenv
+- Optional: make tools
 
 ### Installation
 

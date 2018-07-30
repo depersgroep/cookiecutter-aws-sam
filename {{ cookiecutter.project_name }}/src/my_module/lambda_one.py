@@ -1,4 +1,5 @@
 import logging
+
 import traceback
 import boto3
 import json
@@ -16,16 +17,24 @@ logging.getLogger("aws_xray_sdk").setLevel(logging.CRITICAL)
 session = boto3.Session()
 
 
+@xray_recorder.capture('handler')
 def lambda_handler(event, context):
     """
         AWS Lambda handler
         This method is invoked by the API Gateway: /Prod/first/{proxy+} endpoint.
     """
+    xray_subsegment = xray_recorder.current_subsegment()
+    xray_subsegment.put_annotation('application', '{{ cookiecutter.project_name.lower().replace(' ',' - ') }}')
+    xray_subsegment.put_metadata('event', event, '{{ cookiecutter.project_name.lower().replace(' ',' - ') }}')
+
     try:
+        subsegment = xray_recorder.begin_subsegment('message')
         message = {
             'Id': uuid.uuid4().hex,
             'Count': random.random() * 100,
         }
+        subsegment.put_metadata('message', message, '{{ cookiecutter.project_name.lower().replace(' ',' - ') }}')
+        xray_recorder.end_subsegment()
 
         return {"statusCode": 200, "body": json.dumps(message)}
 
