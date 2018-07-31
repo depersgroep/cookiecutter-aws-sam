@@ -2,9 +2,9 @@
 [![AWS CodePipeline Status](https://s3-eu-west-1.amazonaws.com/{{ cookiecutter.project_name.lower().replace(' ', '-') }}-{{ cookiecutter.cloudformation_resource_suffix.lower() }}-cfn/badges/current_state.svg)](https://s3-eu-west-1.amazonaws.com/{{ cookiecutter.project_name.lower().replace(' ', '-') }}-{{ cookiecutter.cloudformation_resource_suffix.lower() }}-cfn/badges/current_state.svg)
 
 
-This project is build upon **GitOps** patterns so this Git repo act as your **Source of Truth**. It contains the application code and describes the infrastructure (IaC). Any ```git push``` will be picked up by the deployment pipeline and the changes will be deployed to production right away. 
+This project is build upon **GitOps** patterns so this Git repo acts as your **Source of Truth**. It contains the application code and describes the infrastructure (IaC). Any ```git push``` will be picked up by the deployment pipeline and the changes will be deployed to production right away. 
 
-Furthermore this project uses a single environment (no Dev, Test or Acc). Having Canary releasing in place should be your 'Save Haven' if anything goes wrong all changes will be rolled back to the last stable state.
+Furthermore this project uses a single environment (no Dev, Test or Acc). Having Canary releasing in place should be your 'Save Haven'. If anything goes wrong all changes will be rolled back to the last stable state.
 
 ## About AWS SAM
 
