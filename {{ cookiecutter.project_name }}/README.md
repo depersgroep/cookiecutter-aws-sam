@@ -2,32 +2,17 @@
 [![AWS CodePipeline Status](https://s3-eu-west-1.amazonaws.com/{{ cookiecutter.project_name.lower().replace(' ', '-') }}-{{ cookiecutter.cloudformation_resource_suffix.lower() }}-cfn/badges/current_state.svg)](https://s3-eu-west-1.amazonaws.com/{{ cookiecutter.project_name.lower().replace(' ', '-') }}-{{ cookiecutter.cloudformation_resource_suffix.lower() }}-cfn/badges/current_state.svg)
 
 
-This project has build on the **GitOps** principles, so this Git repo act as your **Source of Truth**.....Elaborate on DR, IAC,....
+This project is build upon **GitOps** patterns so this Git repo act as your **Source of Truth**. It contains the application code and describes the infrastructure (IaC). Any ```git push``` will be picked up by the deployment pipeline and the changes will be deployed to production right away. 
 
-## Technology stack
+Furthermore this project uses a single environment (no Dev, Test or Acc). Having Canary releasing in place should be your 'Save Haven' if anything goes wrong all changes will be rolled back to the last stable state.
 
-### AWS SAM
+## About AWS SAM
 
 This project uses [AWS Serverless Application Model (AWS SAM)](https://github.com/awslabs/serverless-application-model).
 
 > **See [Serverless Application Model (SAM) HOWTO Guide](https://github.com/awslabs/serverless-application-model/blob/master/HOWTO.md) for more details in how to get started.**
 
-### CodePipeline, CodeBuild & CodeDeploy
 
-A pipeline is included in this stack in order to deploy your code on AWS. The pipeline is consists out of tree major steps:
-
-1. **Source**: listen for Github code changes
-1. **Build**: 
-	- clean the workspace
-	- lint your code and run unit tests
-	- package the code for deployment
-1. **Deploy**: 
-	- Create a CloudFormation changeset
-	- Deploy your code through CloudFormation on AWS
-	- Use CodeBuild to parse swagger.yaml and deploy the API docs
-
-### Swagger
-[Swagger](https://swagger.io/) is used both to configure AWS API Gateway and to document your API endpoints. The API docs will be exposed under `Prod/api-docs`.
 
 ## Getting Started
 
@@ -133,7 +118,9 @@ To remove the pipeline run:
 make delete-pipeline
 ```
 
-## Project Layout
+## Project Documentation
+
+### Repository layout
 
 Find the most important project files with their description below:
 ```
@@ -147,11 +134,53 @@ Find the most important project files with their description below:
 │   └── my_module			# All Lambda source code
 │       └── lambda_*.py
 ├── swagger.yaml			# Swagger file to deploy AWS API Gateway
-├── targets.txt				# Config file to run load tests with Vegeta (see appendix)
+├── targets.txt			# Config file to run load tests with Vegeta (see appendix)
 ├── template.yaml			# CloudFormation template for AWS SAM
 └── tests					# Lambda Unit Tests
     └── test_handler.py
- ```
+```
+### Application bucket layout
+
+With isolation in mind an S3 Bucket is created to hold all application's resources. 
+The S3 bucket is named ```{{ cookiecutter.project_name.lower().replace(' ', '-') }}-{{ cookiecutter.cloudformation_resource_suffix.lower() }}-cfn ``` and holds the following resources:
+```
+.
+├── artifacts		# Holds Lambda Artifacts (aws cloudformation package triggered by AWSCodeBuild)
+├── badges					# Holds AWS CodePipeline status badges
+├── docs						# Holds Swagger API docs
+└── {{ cookiecutter.project_name.lower().replace(' ', '-') }}-{{ cookiecutter.cloudformation_resource_suffix.lower() }}-pipeline	# Holds AWS CodePipeline Artifacts	
+
+```
+
+### CodePipeline, CodeBuild & CodeDeploy
+
+A pipeline is included in this stack in order to deploy your code on AWS. The pipeline consists out of tree major steps:
+
+1. **Source**: listen for Github code changes
+1. **Build**: 
+	- clean the workspace
+	- lint your code and run unit tests
+	- package the code for deployment
+1. **Deploy**: 
+	- Create a CloudFormation changeset
+	- Deploy your code through CloudFormation on AWS
+	- Use CodeBuild to parse swagger.yaml and deploy the API docs
+
+
+### Code Deploy Integration
+
+```template.yaml``` which contains the AWS SAM code has a default configuration to use AWS CodeDeploy. Out of the box it uses ```LambdaCanary10Percent5Minutes``` (Shifts 10 percent of traffic in the first increment. The remaining 90 percent is deployed five minutes later).
+
+A variety of deployment rules are available to fine-tune your deployment strategy. For more information see:
+- [Working with Deployment Configurations in AWS CodeDeploy](https://docs.aws.amazon.com/codedeploy/latest/userguide/deployment-configurations.html)
+- [Safe Lambda deployments](https://github.com/awslabs/serverless-application-model/blob/develop/docs/safe_lambda_deployments.rst)
+
+### Swagger
+[Swagger](https://swagger.io/) is used both to configure AWS API Gateway and to document your API endpoints. The API docs are exposed under the `Prod/api-docs` API Gateway endpoint.
+
+### X-Ray Support
+
+Lambda-one (```lambda-one-{{ cookiecutter.cloudformation_resource_suffix.lower() }}-cfn```) uses [X-Ray](https://aws.amazon.com/xray/) code instrumentation. X-Ray integration allows  in-depth applications analysis and debugging.
 
 ## Appendix
 
